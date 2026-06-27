@@ -393,7 +393,15 @@
         </section>
 
         <section id="plataformas" class="tab-content max-w-5xl mx-auto">
-            <h2 class="text-4xl font-extrabold text-white mb-6">Plataformas Streaming</h2>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-4xl font-extrabold text-white mb-1">Plataformas Streaming</h2>
+                    <p class="text-gray-400">Catálogo de productos y servicios.</p>
+                </div>
+                <button onclick="abrirModalPlataforma()" class="bg-gradient-to-r from-kgbGold to-yellow-600 text-black px-6 py-3 rounded-xl font-bold shadow-btn hover:scale-105 transition-transform flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Nueva Plataforma
+                </button>
+            </div>
             <div class="glass-panel p-6 rounded-2xl shadow-3d overflow-x-auto">
                 <table class="w-full text-left text-sm whitespace-nowrap">
                     <thead class="bg-black/60 text-kgbGold text-xs uppercase">
@@ -513,6 +521,38 @@
                     <tbody id="md-body" class="divide-y divide-gray-800"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal Acción Plataforma -->
+    <div id="modal-plataforma" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-center items-center hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel w-full max-w-md rounded-2xl shadow-2xl border border-gray-700 transform scale-95 transition-transform duration-300" id="modal-plataforma-content">
+            <div class="p-6 border-b border-gray-800 flex justify-between items-center bg-black/40 rounded-t-2xl">
+                <h3 class="text-2xl font-bold text-kgbGold"><i class="fa-solid fa-clapperboard mr-2"></i> Nueva Plataforma</h3>
+                <button onclick="cerrarModalPlataforma()" class="text-gray-400 hover:text-white text-2xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form id="form-plataforma" onsubmit="event.preventDefault(); guardarPlataforma();" class="p-6 flex flex-col gap-5">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Nombre de Plataforma</label>
+                    <input type="text" id="form-plat-nombre" required placeholder="Ej: Crunchyroll Premium" class="w-full p-3 input-3d rounded-lg">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Estado</label>
+                    <select id="form-plat-estado" required class="w-full p-3 input-3d rounded-lg appearance-none">
+                        <option value="activo">Activo</option>
+                        <option value="inactivo">Inactivo</option>
+                    </select>
+                </div>
+
+                <div class="pt-4 flex justify-end gap-4 border-t border-gray-800">
+                    <button type="button" onclick="cerrarModalPlataforma()" class="px-6 py-2 text-gray-400 font-bold hover:text-white transition">Cancelar</button>
+                    <button type="submit" class="bg-kgbGold text-black font-bold px-8 py-2 rounded-lg shadow-btn hover:bg-kgbGoldHover transition">
+                        Guardar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1011,6 +1051,42 @@
                 aplicarConfig();
                 toast("Guardado", "Configuración de Core actualizada", "success");
             } catch(e){}
+        }
+
+        // ================= PLATAFORMAS CRUD =================
+        function abrirModalPlataforma() {
+            document.getElementById('form-plataforma').reset();
+            const m = document.getElementById('modal-plataforma');
+            const mc = document.getElementById('modal-plataforma-content');
+            m.classList.remove('hidden');
+            setTimeout(() => { m.classList.remove('opacity-0'); mc.classList.remove('scale-95'); }, 10);
+        }
+
+        function cerrarModalPlataforma() {
+            const m = document.getElementById('modal-plataforma');
+            const mc = document.getElementById('modal-plataforma-content');
+            m.classList.add('opacity-0'); mc.classList.add('scale-95');
+            setTimeout(() => m.classList.add('hidden'), 300);
+        }
+
+        async function guardarPlataforma() {
+            const payload = {
+                nombre_plataforma: document.getElementById('form-plat-nombre').value,
+                estado: document.getElementById('form-plat-estado').value,
+                observacion: 'Agregada manualmente'
+            };
+
+            try {
+                const nueva = await apiPost('addPlataforma', payload);
+                State.plataformas.push(nueva);
+                toast("Guardado", "Plataforma registrada con éxito", "success");
+                
+                cerrarModalPlataforma();
+                renderSimpleTable('tbl-plataformas', State.plataformas, ['id_plataforma', 'nombre_plataforma', 'estado', 'fecha_registro']);
+                
+                // Vuelve a llenar los selects para que aparezca al crear nuevos clientes
+                poblarSelectsGlobales();
+            } catch(e) {}
         }
 
         // ================= HELPERS UI =================
