@@ -327,8 +327,9 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-kgbGold mb-2">Tipo de Mensaje</label>
+                            <label class="block text-sm font-bold text-kgbGold mb-2">Filtro de Plantillas</label>
                             <select id="msg-tipo" onchange="cargarPlantillasXtipo()" class="w-full p-3 rounded-lg input-3d">
+                                <option value="TODOS">-- Mostrar Todas --</option>
                                 <option value="vencimiento_cambio_numero">Vencimiento + Cambio Nro</option>
                                 <option value="solo_cambio_numero">Solo Cambio Número</option>
                                 <option value="invitacion_compra">Invitación Compra</option>
@@ -830,28 +831,52 @@
                 document.getElementById('msg-vendedor').value = cli.vendedor_id;
             } else {
                 document.getElementById('msg-vendedor').value = "SIN_VENDEDOR";
-                document.getElementById('msg-tipo').value = "cliente_sin_vendedor";
             }
 
-            if(!cli.nombre || cli.nombre.trim() === '') {
-                document.getElementById('msg-tipo').value = "cliente_sin_nombre";
-            }
+            // AHORA POR DEFECTO MOSTRAMOS TODAS LAS PLANTILLAS
+            document.getElementById('msg-tipo').value = "TODOS";
 
             cargarPlantillasXtipo();
+            
+            // Si el cliente está por vencer o vencido, auto-seleccionamos una de vencimiento para agilizar
+            if(cli.dias_faltantes <= 3) {
+                const selectPlan = document.getElementById('msg-plantilla');
+                const optionVenc = Array.from(selectPlan.options).find(o => o.text.toLowerCase().includes('vencimiento'));
+                if(optionVenc) selectPlan.value = optionVenc.value;
+            }
+            
+            generarPrevisualizacion();
         }
 
         function cargarPlantillasXtipo() {
-            const tipo = document.getElementById('msg-tipo').value;
+            const tipoFiltro = document.getElementById('msg-tipo').value;
             const select = document.getElementById('msg-plantilla');
             select.innerHTML = '';
             
-            const filtradas = State.plantillas.filter(p => p.tipo_mensaje === tipo);
+            let filtradas = State.plantillas;
+            if (tipoFiltro !== 'TODOS') {
+                filtradas = State.plantillas.filter(p => p.tipo_mensaje === tipoFiltro);
+            }
+            
             if(filtradas.length === 0) {
-                select.innerHTML = '<option value="">No hay plantillas de este tipo</option>';
+                select.innerHTML = '<option value="">No hay plantillas</option>';
             } else {
+                // AGRUPAR LAS PLANTILLAS VISUALMENTE
+                const grupos = {};
                 filtradas.forEach(p => {
-                    select.innerHTML += `<option value="${p.id_plantilla}">${p.nombre_plantilla}</option>`;
+                    if(!grupos[p.tipo_mensaje]) grupos[p.tipo_mensaje] = [];
+                    grupos[p.tipo_mensaje].push(p);
                 });
+
+                for(const [tipo, plants] of Object.entries(grupos)) {
+                    let tipoLegible = tipo.replace(/_/g, ' ').toUpperCase();
+                    let groupHtml = `<optgroup label="👉 ${tipoLegible}">`;
+                    plants.forEach(p => {
+                        groupHtml += `<option value="${p.id_plantilla}">${p.nombre_plantilla}</option>`;
+                    });
+                    groupHtml += `</optgroup>`;
+                    select.innerHTML += groupHtml;
+                }
             }
             generarPrevisualizacion();
         }
@@ -924,8 +949,16 @@
         function prepararMensajeRapido(id_cliente) {
             document.getElementById('modal-dash').classList.add('hidden'); 
             nav('mensajes');
+            
             document.getElementById('msg-cliente').value = id_cliente;
-            onMsgClienteChange();
+            const cli = State.clientes.find(c => c.id_cliente === id_cliente);
+            if(cli.vendedor_id) document.getElementById('msg-vendedor').value = cli.vendedor_id;
+            else document.getElementById('msg-vendedor').value = "SIN_VENDEDOR";
+            
+            // Si viene del Dashboard de Vencimientos, forzamos el filtro a Vencimiento
+            document.getElementById('msg-tipo').value = "vencimiento_cambio_numero";
+            
+            cargarPlantillasXtipo();
             seleccionarPlantillaAleatoria(); 
         }
 
@@ -949,12 +982,16 @@
             if(!cId) return;
             const c = State.clientes.find(x => x.id_cliente === cId);
             
+            // Obtenemos la plantilla exacta que se usó para guardar su tipo en el Log
+            const tId = document.getElementById('msg-plantilla').value;
+            const plan = State.plantillas.find(p => p.id_plantilla === tId);
+            
             const payload = {
                 id_cliente: cId,
                 nombre_cliente: c.nombre,
                 whatsapp_cliente: c.whatsapp,
                 plataforma: c.plataforma,
-                tipo_mensaje: document.getElementById('msg-tipo').value,
+                tipo_mensaje: plan ? plan.tipo_mensaje : 'Mensaje Personalizado',
                 estado_mensaje: 'Enviado Manual',
                 responsable: State.config.responsable
             };
